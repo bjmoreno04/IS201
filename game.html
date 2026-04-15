@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tank Battle - 2 Player</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Share Tech Mono', monospace;
+      color: #e0e0e0;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 2rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(100,180,255,0.5);
+      margin-bottom: 12px;
+    }
+
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 700px;
+      margin-bottom: 8px;
+    }
+
+    .score {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+    }
+
+    .score.p1 { color: #4fc3f7; text-shadow: 0 0 10px rgba(79,195,247,0.6); }
+    .score.p2 { color: #ef9a9a; text-shadow: 0 0 10px rgba(239,154,154,0.6); }
+
+    #msg {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      color: #aaa;
+      letter-spacing: 0.05em;
+      text-align: center;
+      min-height: 20px;
+    }
+
+    canvas {
+      display: block;
+      border: 1px solid #2a2a4a;
+      outline: none;
+    }
+
+    #controls {
+      display: flex;
+      gap: 24px;
+      margin-top: 12px;
+      align-items: center;
+    }
+
+    .ctrl-box {
+      background: #111128;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 0.75rem;
+      line-height: 1.8;
+      color: #888;
+    }
+
+    .ctrl-box b { display: block; margin-bottom: 2px; font-size: 0.8rem; }
+    .ctrl-box b.p1 { color: #4fc3f7; }
+    .ctrl-box b.p2 { color: #ef9a9a; }
+
+    #restartBtn {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 10px 24px;
+      background: transparent;
+      color: #ccc;
+      border: 1px solid #3a3a6a;
+      border-radius: 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    #restartBtn:hover { background: #1a1a3a; color: #fff; }
+  </style>
+</head>
+<body>
+    <nav class="navbar">
+    <a href="scratch.html" class="navbar-brand" id="top">All Time NBA Players</a>
+    </nav>
+<h1>Tank Battle</h1>
+<div id="hud">
+  <span class="score p1" id="p1score">P1 &mdash; 0</span>
+  <span id="msg">Press any key to start!</span>
+  <span class="score p2" id="p2score">0 &mdash; P2</span>
+</div>
+<canvas id="c" width="700" height="500"></canvas>
+<div id="controls">
+  <div class="ctrl-box">
+    <b class="p1">Player 1</b>
+    Move: W A S D<br>
+    Shoot: Space
+  </div>
+  <button id="restartBtn">Restart</button>
+  <div class="ctrl-box">
+    <b class="p2">Player 2</b>
+    Move: Arrow Keys<br>
+    Shoot: Enter
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const W = 700, H = 500;
+  const TANK_SIZE = 16;
+  const BULLET_SPEED = 5;
+  const TANK_SPEED = 2;
+  const TURN_SPEED = 0.04;
+  const MAX_BOUNCES = 3;
+  const BULLET_COOLDOWN = 30;
+  const MAX_BULLETS = 3;
+
+  const WALLS = [
+    {x:0,y:0,w:700,h:12},
+    {x:0,y:488,w:700,h:12},
+    {x:0,y:0,w:12,h:500},
+    {x:688,y:0,w:12,h:500},
+    {x:100,y:60,w:12,h:120},
+    {x:250,y:60,w:200,h:12},
+    {x:588,y:60,w:12,h:120},
+    {x:60,y:220,w:180,h:12},
+    {x:460,y:220,w:180,h:12},
+    {x:310,y:180,w:12,h:100},
+    {x:100,y:350,w:120,h:12},
+    {x:480,y:350,w:120,h:12},
+    {x:280,y:320,w:12,h:120},
+    {x:408,y:320,w:12,h:120},
+    {x:150,y:430,w:200,h:12},
+    {x:350,y:430,w:200,h:12},
+  ];
+
+  let p1score = 0, p2score = 0, gameRunning = false;
+  let keys = {};
+  let tanks, bullets;
+
+  function rectRect(a, b) {
+    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+  }
+
+  function initGame() {
+    tanks = [
+      {x:60, y:250, angle:0, color:'#4fc3f7', outline:'#0288d1', cooldown:0, alive:true},
+      {x:620, y:250, angle:Math.PI, color:'#ef9a9a', outline:'#c62828', cooldown:0, alive:true},
+    ];
+    bullets = [];
+    document.getElementById('msg').textContent = '';
+    gameRunning = true;
+  }
+
+  function tankRect(t) {
+    return {x:t.x-TANK_SIZE, y:t.y-TANK_SIZE, w:TANK_SIZE*2, h:TANK_SIZE*2};
+  }
+
+  function shootBullet(tank) {
+    if (tank.cooldown > 0 || !tank.alive) return;
+    let myBullets = bullets.filter(b => b.owner === tank);
+    if (myBullets.length >= MAX_BULLETS) return;
+    bullets.push({
+      x: tank.x + Math.cos(tank.angle) * TANK_SIZE,
+      y: tank.y + Math.sin(tank.angle) * TANK_SIZE,
+      vx: Math.cos(tank.angle) * BULLET_SPEED,
+      vy: Math.sin(tank.angle) * BULLET_SPEED,
+      bounces: 0,
+      owner: tank,
+      life: 300
+    });
+    tank.cooldown = BULLET_COOLDOWN;
+  }
+
+  function moveTank(tank, forward, turnDir) {
+    if (!tank.alive) return;
+    tank.angle += turnDir * TURN_SPEED;
+    let nx = tank.x + Math.cos(tank.angle) * forward * TANK_SPEED;
+    let ny = tank.y + Math.sin(tank.angle) * forward * TANK_SPEED;
+    let tr = {x:nx-TANK_SIZE, y:ny-TANK_SIZE, w:TANK_SIZE*2, h:TANK_SIZE*2};
+    let blocked = false;
+    for (let w of WALLS) { if (rectRect(tr, w)) { blocked = true; break; } }
+    if (!blocked) { tank.x = nx; tank.y = ny; }
+  }
+
+  function update() {
+    if (!gameRunning) return;
+
+    let t1 = tanks[0], t2 = tanks[1];
+    if (t1.cooldown > 0) t1.cooldown--;
+    if (t2.cooldown > 0) t2.cooldown--;
+
+    let fwd1=0, turn1=0, fwd2=0, turn2=0;
+    if (keys['w']) fwd1 = 1;
+    if (keys['s']) fwd1 = -1;
+    if (keys['a']) turn1 = -1;
+    if (keys['d']) turn1 = 1;
+    if (keys['ArrowUp']) fwd2 = 1;
+    if (keys['ArrowDown']) fwd2 = -1;
+    if (keys['ArrowLeft']) turn2 = -1;
+    if (keys['ArrowRight']) turn2 = 1;
+    if (keys[' ']) shootBullet(t1);
+    if (keys['Enter']) shootBullet(t2);
+
+    moveTank(t1, fwd1, turn1);
+    moveTank(t2, fwd2, turn2);
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      let b = bullets[i];
+      b.life--;
+      if (b.life <= 0) { bullets.splice(i, 1); continue; }
+
+      let nx = b.x + b.vx, ny = b.y + b.vy;
+      let br = {x:nx-4, y:ny-4, w:8, h:8};
+
+      for (let w of WALLS) {
+        if (rectRect(br, w)) {
+          let bx = {x:b.x+b.vx-4, y:b.y-4, w:8, h:8};
+          let by = {x:b.x-4, y:b.y+b.vy-4, w:8, h:8};
+          if (rectRect(bx, w)) b.vx *= -1;
+          if (rectRect(by, w)) b.vy *= -1;
+          b.bounces++;
+          break;
+        }
+      }
+      if (b.bounces > MAX_BOUNCES) { bullets.splice(i, 1); continue; }
+
+      b.x += b.vx; b.y += b.vy;
+
+      for (let t of tanks) {
+        if (!t.alive || t === b.owner) continue;
+        let tr = tankRect(t);
+        let bc = {x:b.x-4, y:b.y-4, w:8, h:8};
+        if (rectRect(bc, tr)) {
+          t.alive = false;
+          bullets.splice(i, 1);
+          if (t === t2) p1score++;
+          else p2score++;
+          document.getElementById('p1score').textContent = 'P1 \u2014 ' + p1score;
+          document.getElementById('p2score').textContent = p2score + ' \u2014 P2';
+          document.getElementById('msg').textContent =
+            (t === t2 ? 'Player 1 wins the round!' : 'Player 2 wins the round!') + '  |  Press R to replay';
+          gameRunning = false;
+          break;
+        }
+      }
+    }
+  }
+
+  function drawTank(t) {
+    if (!t.alive) return;
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.rotate(t.angle);
+    ctx.fillStyle = t.color;
+    ctx.strokeStyle = t.outline;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(-TANK_SIZE, -TANK_SIZE, TANK_SIZE*2, TANK_SIZE*2, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = t.outline;
+    ctx.fillRect(TANK_SIZE-4, -4, TANK_SIZE+2, 8);
+    ctx.fillStyle = t.color;
+    ctx.fillRect(TANK_SIZE-2, -3, TANK_SIZE, 6);
+    ctx.restore();
+  }
+
+  function drawWalls() {
+    ctx.fillStyle = '#1e2156';
+    ctx.strokeStyle = '#3a3f8a';
+    ctx.lineWidth = 1;
+    for (let w of WALLS) {
+      ctx.fillRect(w.x, w.y, w.w, w.h);
+      ctx.strokeRect(w.x, w.y, w.w, w.h);
+    }
+  }
+
+  function drawBullets() {
+    for (let b of bullets) {
+      ctx.globalAlpha = Math.min(1, b.life / 60);
+      ctx.fillStyle = b.owner === tanks[0] ? '#b3e5fc' : '#ffcdd2';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 4, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawFloor() {
+    ctx.fillStyle = '#0d0d20';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#141430';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+
+  function draw() {
+    drawFloor();
+    drawWalls();
+    drawBullets();
+    if (tanks) { drawTank(tanks[0]); drawTank(tanks[1]); }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  document.addEventListener('keydown', e => {
+    keys[e.key] = true;
+    if (!gameRunning && (e.key === 'r' || e.key === 'R')) initGame();
+    if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+  });
+  document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    p1score = 0; p2score = 0;
+    document.getElementById('p1score').textContent = 'P1 \u2014 0';
+    document.getElementById('p2score').textContent = '0 \u2014 P2';
+    initGame();
+  });
+
+  initGame();
+  loop();
+</script>
+</body>
+</html>

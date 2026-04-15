@@ -1,0 +1,71 @@
+h1 {
+    background-color:#14017f;
+    color: whitesmoke;
+}
+
+body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 15px;
+            color:black;
+            background-color: rgb(66, 210, 230);
+        }     
+        li {
+            font-size: 14px;
+            font-style:italics;
+            
+        }
+        ol {
+            background-color: #14017f;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        ul {
+            color: white;
+        }
+        a {
+            color:navy;
+        }
+        /* Container for the entire bar */
+.navbar {
+    background-color: #14017f;
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* The 'Resume' Link */
+        .navbar-brand {
+            color: white;
+            text-decoration: none;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        /* The container for the right-side links */
+        .navbar-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* Styling for all links in the navbar */
+        .navbar-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 1.5rem;
+            transition: color 0.3s ease;
+            font-weight: bold;
+        }
+
+        /* HOVER EFFECT: This is only possible with separated CSS */
+        .navbar-links a:hover {
+            color: #3498db;
+        }
+
+        .navbar-brand:hover {
+            color: #3498db;
+        }
